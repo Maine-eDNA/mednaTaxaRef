@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# November 2022
 Load in abbagadabba
 ```{r}
 library(devtools)
@@ -90,7 +91,7 @@ write.csv(uniqueresults, '~/Research/MaineSpeciesList.csv')
 ```
 
 
-Continue on 2/21/2023 with the following goals:
+# Continue on 2/21/2023 with the following goals:
 
 * Run the species list through the abbagadabba cleaning codes and add on the other taxonomic ranks
 * remove case insensitive duplicates
@@ -184,3 +185,72 @@ for (i in listfull) {
 
 taxatest <- as.data.frame(taxa)
 ```
+
+
+# July 11, 2023
+BYD
+
+Goals:
+Continue cleaning the species list (need to deal with capitalization inconsistencies (done), check for special characters (done), remove everything that isn't a 2 word species binomial (done), and remove duplicates again)
+
+Write a little chunk to add new species to the list (and maybe record the row numbers so that downstream scripts and functions can also be run without having to rerun the entire document? Or should it be the other way around - run the to-be-added file first and then append?)
+
+
+(using scan so it imports as a vector)
+```{r import_full_list, echo = FALSE}
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+encodetest <- scan("C:/Users/bydav/Desktop/MaineSpeciesList_Clean.csv", sep=',', what = "", quiet = TRUE, encoding = "latin1")
+```
+```{r cases, echo = FALSE}
+
+# fix capitalization
+encodes <- str_to_sentence(encodetest)
+```
+
+```{r binomial, echo = FALSE}
+
+# I give up on doing regexp searches and replaces. Breaking the vector of names into a dataframe, separating by space so I can just join only the first two columns
+encodetable <- as.data.frame(encodes) %>% separate(encodes, into = paste("column", 1:23, sep = " "))
+
+# join the binomial back together
+encodetable$source_binomial <- paste0(encodetable$`column 1`, sep=" ", encodetable$`column 2`)
+
+# check for special characters and check results for any trues
+pattern <- "/|:|\\?|<|>|\\|\\\\|\\*"
+
+results <- grepl(pattern, encodetable$source_binomial)
+```
+
+I can't get (genus sp) or (genus cf) removed - keeping in for now, input requested
+
+```{r genera, echo = FALSE}
+# pick out just the genera 
+generalist <- encodetable$`column 1`
+
+# find only the unique genera
+genera <- unique(generalist)
+MaineGenera <- write.csv(genera, "C:/Users/bydav/Desktop/MaineGenera.csv")
+
+```
+
+```{r unique_export, echo = FALSE}
+# remove uniques and export to a new file
+encodeunique <- unique(encodetable$source_binomial)
+
+cleanlist <- write.csv(encodeunique, "C:/Users/bydav/Desktop/CleanSpecies.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+

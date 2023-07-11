@@ -9,21 +9,38 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+species <- read.csv("C:/Users/bydav/Desktop/July2023_SpeciesList.csv", header = TRUE)
+library(stringr)
+```
+
 # Task Assignments
 
 
-## Task: Run full list genera through GGI 
+## Task: way to add species
+Write a little chunk to add new species to the list (and maybe record the row numbers so that downstream scripts and functions can also be run without having to rerun the entire document? Or should it be the other way around - run the to-be-added file first and then append?)
 
-Need to:
-Download full list
-Import full list
-Remove all but the first word
-Standardize capitalizations
-Search for special characters (errors)
-Remove duplicates
-Run through GGI (check how to use)
-Save output
+```{r}
+# need to add: 
+#fundulus heterclitus
+#acipenser oxrhynchus
 
+```
+
+## Task: way to search if a species is already present and locate the row if so
+```{r}
+
+addlist <- c("petromyzon marinus", "anguilla rostrata", "micropterus salmoides", "salvelinus fontinalis", "microgadus tomcod", "salmo salar", "alosa sapidissima", "alosa aestivalis", "morone saxatilis", "morone americana", "alosa pseudoharengus", "osmerus mordax", "sebastes fasciatus", "urophycis tenuis", "brosme brosme", "gadus morhua", "thunnus thynnus", "pollachius virens", "brevoortia tyrannus", "merluccius bilinearis", "oncorhynchus mykiss", "salmo trutta", "acipenser oxrhynchus", "acipenser brevirostrum", "fundulus heterclitus")
+
+for (i in addlist){
+  i = str_to_sentence(i)
+  print(which(species == i, arr.ind=TRUE))
+}
+
+print(which(species == "acipenser oxrhynchus", arr.ind=TRUE))
+```
+
+## Task: way to remove a species
 
 
 
@@ -46,6 +63,8 @@ Here, credit categories reference and follow the CRediT system (https://www.ncbi
 
 Made 2 copies (one for #1-4 and one for ##5) and put them into the Codathon folder on the RefLib drive. Also linked to slack for the codathon people to get first pass at adding their names
 
+## Task: Run full list genera through GGI 
+Complete
 
 # Post Codathon Tasks
 ## Email the RL group about the Zenodo page
