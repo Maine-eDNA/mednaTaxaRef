@@ -1,0 +1,98 @@
+---
+title: "GetNCBIFamilies"
+author: "Erin Grey"
+date: "2023-07-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r housekeeping, include=FALSE}
+rm(list=ls()) # clear environment
+install.packages("taxizedb") #install packages 
+library("taxizedb") # load packages
+
+```
+
+```{r get_tax_database, include=FALSE}
+db_tax_NCBI <- db_download_ncbi(verbose = TRUE, overwrite = FALSE) #download the NCBI taxonomy database
+
+```
+
+```{r get_families, include=FALSE}
+families_NCBI_eukaryotes <- downstream("Eukarya", db = "ncbi", downto = "family") #get all family names in Domain Eukarya, note- output is a list
+families_NCBI_eukaryotes_df <- as.data.frame(families_NCBI_eukaryotes[1]) #format from list to dataframe
+
+```
+
+```{r get_taxonomies, include=FALSE}
+taxonomy_of_families <- taxizedb::classification(families_NCBI_eukaryotes_df[,1], db="ncbi") #get full taxonomies for each family, note - output is a list-like "classification" object that sucks
+
+```
+
+```{r format_output, include=FALSE}
+taxonomy_of_families_df <- data.frame(matrix(ncol=7, nrow=length(taxonomy_of_families))) # empty dataframe
+colnames(taxonomy_of_families_df) <- c("full_branch","superkingdom","kingdom","phylum","class","order","family") #add column names to the empty dataframe
+
+#loop through the classification object to populate the empty dataframe
+for (i in 1:length(taxonomy_of_families)) {
+  x <- as.data.frame(taxonomy_of_families[i])
+  c1 <- paste0(x[,1], collapse=";")
+  c2 <- x[which(x[,2]=="superkingdom"),1]
+  c3 <- x[which(x[,2]=="kingdom"),1]
+  c4 <- x[which(x[,2]=="phylum"),1]
+  c5 <- x[which(x[,2]=="class"),1]
+  c6 <- x[which(x[,2]=="order"),1]
+  c7 <- x[which(x[,2]=="family"),1]
+  
+  if (length(c1) > 0) {
+    taxonomy_of_families_df$full_branch[i] <- c1
+  } else {
+    taxonomy_of_families_df$full_branch[i] <- "na"    
+  }
+  
+  if (length(c2) > 0) {
+    taxonomy_of_families_df$superkingdom[i] <- c2
+  } else {
+    taxonomy_of_families_df$superkingdom[i] <- "na"    
+  }
+  
+  if (length(c3) > 0) {
+    taxonomy_of_families_df$kingdom[i] <- c3
+  } else {
+    taxonomy_of_families_df$kingdom[i] <- "na"    
+  }
+  
+  if (length(c4) > 0) {
+    taxonomy_of_families_df$phylum[i] <- c4
+  } else {
+    taxonomy_of_families_df$phylum[i] <- "na"    
+  }
+  
+  if (length(c5) > 0) {
+    taxonomy_of_families_df$class[i] <- c5
+  } else {
+    taxonomy_of_families_df$class[i] <- "na"    
+  }
+  
+  if (length(c6) > 0) {
+    taxonomy_of_families_df$order[i] <- c6
+  } else {
+    taxonomy_of_families_df$order[i] <- "na"    
+  }
+  
+  if (length(c7) > 0) {
+    taxonomy_of_families_df$family[i] <- c7
+  } else {
+    taxonomy_of_families_df$family[i] <- "na"    
+  }
+ rm(list = c("c1","c2","c3","c4","c5","c6","c7","x"))
+}
+```
+
+```{r get_taxonomies, include=FALSE}
+write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-07-12.csv", row.names = F)
+
+```
