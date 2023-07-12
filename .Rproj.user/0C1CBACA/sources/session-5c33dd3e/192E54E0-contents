@@ -17,7 +17,7 @@ library(stringr)
 # Task Assignments
 
 
-## Task: way to add species
+## Task: way to add species - deal with in #5, not now
 Write a little chunk to add new species to the list (and maybe record the row numbers so that downstream scripts and functions can also be run without having to rerun the entire document? Or should it be the other way around - run the to-be-added file first and then append?)
 
 ```{r}
@@ -40,7 +40,7 @@ for (i in addlist){
 print(which(species == "acipenser oxrhynchus", arr.ind=TRUE))
 ```
 
-## Task: way to remove a species
+## Task: way to remove a species? - deal with in #5, not now
 
 
 
