@@ -19,7 +19,7 @@ Only put code in here once it has been reviewed separately
 if (!require("stringr")) {install.packages("stringr"); require("stringr")} # used for species list cleaning
 if (!require("dplyr")) {install.packages("dplyr"); require("dplyr")} # used for species list cleaning
 if (!require("tidyr")) {install.packages("tidyr"); require("tidyr")} # used for species list cleaning
-
+if (!require("taxizedb")) {install.packages("taxizedb"); require("taxizedb")} # used for taxonomy download and filling
 ```
 
 # Species List Assembly and Cleaning
@@ -105,13 +105,102 @@ cleanlist <- write.csv(encodeunique, "C:/Users/bydav/Desktop/CleanSpecies.csv")
 
 By now, we have joined the GBIF and non-GBIF species lists, removed any information except for the species binomial, checked for special characters, standardized capitalization, and removed duplicates. The barebones species list should now be ready for further processing.
 
+# Filling in Higher Taxonomy
+## TASK: Remove Bacteria and Fungi listings
+
+# Gathering Family Exemplars for Gap Analysis and Mock Community Selection
+## TASK: Verify that this is what the family exemplars are for
+
+To obtain the list of families for comparison, we downloaded the NCBI taxonomy database (7/11/2023) with taxizedb, selected all Eukarya families in the NCBI database, and filled in higher taxonomy.
+
+```{r database_download, echo = FALSE}
+# Download the NCBI Taxonomy database
+db_tax_NCBI <- db_download_ncbi(verbose = TRUE, overwrite = FALSE) #download the NCBI taxonomy database
+```
+
+```{r family_taxonomy, echo = FALSE}
+# get all family names in Domain Eukarya, note- output is a list
+families_NCBI_eukaryotes <- downstream("Eukarya", db = "ncbi", downto = "family") 
+
+# format from list to dataframe
+families_NCBI_eukaryotes_df <- as.data.frame(families_NCBI_eukaryotes[1]) 
+
+# get full taxonomies for each family, note - output is a list-like "classification" object that sucks
+taxonomy_of_families <- taxizedb::classification(families_NCBI_eukaryotes_df[,1], db="ncbi") 
+
+```
+
+## TASK: Try to switch the for loop out for an apply
+```{r format_output, include=FALSE}
+# create an empty dataframe
+taxonomy_of_families_df <- data.frame(matrix(ncol=7, nrow=length(taxonomy_of_families))) 
+
+# add column names to the empty dataframe
+colnames(taxonomy_of_families_df) <- c("full_branch","superkingdom","kingdom","phylum","class","order","family") 
+
+# loop through the classification object to populate the empty dataframe
+for (i in 1:length(taxonomy_of_families)) {
+  x <- as.data.frame(taxonomy_of_families[i])
+  c1 <- paste0(x[,1], collapse=";")
+  c2 <- x[which(x[,2]=="superkingdom"),1]
+  c3 <- x[which(x[,2]=="kingdom"),1]
+  c4 <- x[which(x[,2]=="phylum"),1]
+  c5 <- x[which(x[,2]=="class"),1]
+  c6 <- x[which(x[,2]=="order"),1]
+  c7 <- x[which(x[,2]=="family"),1]
+  
+  if (length(c1) > 0) {
+    taxonomy_of_families_df$full_branch[i] <- c1
+  } else {
+    taxonomy_of_families_df$full_branch[i] <- "na"    
+  }
+  
+  if (length(c2) > 0) {
+    taxonomy_of_families_df$superkingdom[i] <- c2
+  } else {
+    taxonomy_of_families_df$superkingdom[i] <- "na"    
+  }
+  
+  if (length(c3) > 0) {
+    taxonomy_of_families_df$kingdom[i] <- c3
+  } else {
+    taxonomy_of_families_df$kingdom[i] <- "na"    
+  }
+  
+  if (length(c4) > 0) {
+    taxonomy_of_families_df$phylum[i] <- c4
+  } else {
+    taxonomy_of_families_df$phylum[i] <- "na"    
+  }
+  
+  if (length(c5) > 0) {
+    taxonomy_of_families_df$class[i] <- c5
+  } else {
+    taxonomy_of_families_df$class[i] <- "na"    
+  }
+  
+  if (length(c6) > 0) {
+    taxonomy_of_families_df$order[i] <- c6
+  } else {
+    taxonomy_of_families_df$order[i] <- "na"    
+  }
+  
+  if (length(c7) > 0) {
+    taxonomy_of_families_df$family[i] <- c7
+  } else {
+    taxonomy_of_families_df$family[i] <- "na"    
+  }
+ rm(list = c("c1","c2","c3","c4","c5","c6","c7","x"))
+}
+
+# Save output
+write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-07-12.csv", row.names = F)
+```
+
+# Descriptive Column Addition
+## TASK: Add a mockcommunity column to indicate mock community members
 
 # Boundary of Transfer
-
-
-
-
-
 
 
 

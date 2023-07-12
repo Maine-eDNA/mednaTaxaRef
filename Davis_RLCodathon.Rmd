@@ -17,7 +17,7 @@ library(stringr)
 # Task Assignments
 
 
-## Task: way to add species - deal with in #5, not now
+## Task: way to add species 
 Write a little chunk to add new species to the list (and maybe record the row numbers so that downstream scripts and functions can also be run without having to rerun the entire document? Or should it be the other way around - run the to-be-added file first and then append?)
 
 ```{r}
@@ -28,6 +28,7 @@ Write a little chunk to add new species to the list (and maybe record the row nu
 ```
 
 ## Task: way to search if a species is already present and locate the row if so
+## TASK: Try to switch the for loop out for an apply
 ```{r}
 
 addlist <- c("petromyzon marinus", "anguilla rostrata", "micropterus salmoides", "salvelinus fontinalis", "microgadus tomcod", "salmo salar", "alosa sapidissima", "alosa aestivalis", "morone saxatilis", "morone americana", "alosa pseudoharengus", "osmerus mordax", "sebastes fasciatus", "urophycis tenuis", "brosme brosme", "gadus morhua", "thunnus thynnus", "pollachius virens", "brevoortia tyrannus", "merluccius bilinearis", "oncorhynchus mykiss", "salmo trutta", "acipenser oxrhynchus", "acipenser brevirostrum", "fundulus heterclitus")
@@ -37,12 +38,11 @@ for (i in addlist){
   print(which(species == i, arr.ind=TRUE))
 }
 
+# to find a specific species/entry:
 print(which(species == "acipenser oxrhynchus", arr.ind=TRUE))
 ```
 
 ## Task: way to remove a species? - deal with in #5, not now
-
-
 
 # Tasks in Review
 ## Task: Write Zenodo landing page (narrative, links, use cases) - decide on account/hosting
