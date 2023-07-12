@@ -1,0 +1,6 @@
+Species_binomial,Species_common,Extract_label,Extraction_date,Extraction_person,Extraction_protocol,Qubit_ng_ul,Qubit_assay,Sanger01Primers,Sanger01Sequence,Notes
+Amphiprion ocellaris,orange clownfish,Cf,2/28/2023,DeCorey Bolton,Qiagen DNeasy,16.85,1X dsDNA assay,,,
+Pomacentridae sp.,damselfish,Df,2/28/2023,DeCorey Bolton,Qiagen DNeasy,24.3,1X dsDNA assay,,,
+Paracheirdodon innesi,Neon Tetra,Nt,2/28/2023,DeCorey Bolton,Qiagen DNeasy,18.37,1X dsDNA assay,,,
+Gyrinocheilus aymoniei,Chinese algae eater,Ca,2/28/2023,DeCorey Bolton,Qiagen DNeasy,3.84,1X dsDNA assay,,,
+Xiphophorus maculatus,Platy,Pl,2/28/2023,DeCorey Bolton,Qiagen DNeasy,20.4,1X dsDNA assay,,,

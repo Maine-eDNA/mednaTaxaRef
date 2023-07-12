@@ -1,0 +1,6 @@
+Species_binomial,Species_common,Extract_label,Extraction_date,Extraction_person,Extraction_protocol,Qubit_ng_ul,Qubit_assay,Sanger01Primers,Sanger01Sequence,Notes
+Puma concolor,Mountain lion,FMNH - 198450,2016,John Stechly,Qiagen Dneasy Blood and Tissue,,,,,FMNH - 198450
+Botryllus sp.,compound ascidian,Botryllus sp,2010,Erin Grey,Qiagen Dneasy Blood and Tissue,,,,,Japan 2010
+Callinectes sapidus,Blue crab,,2013,Stephanie Murrell,Zymo,,,,,Pensacola FL USA - Jan 7 2015
+Amphiprion ocellaris,Orange Clownfish,Cf,2/28/2023,DeCorey Bolton,Qiagen DNeasy,16.85,1X dsDNA assay,,,DeCorey's mock
+Mytilus edulis,Blue mussel,Mu,2/28/2023,DeCorey Bolton,Qiagen DNeasy,10.3,1X dsDNA assay,,,DeCorey's mock
