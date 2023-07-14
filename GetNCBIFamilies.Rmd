@@ -94,5 +94,4 @@ for (i in 1:length(taxonomy_of_families)) {
 
 ```{r get_taxonomies, include=FALSE}
 write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-07-12.csv", row.names = F)
-
 ```
