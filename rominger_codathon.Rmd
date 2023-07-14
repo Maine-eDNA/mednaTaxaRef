@@ -1,0 +1,90 @@
+---
+title: "Rominger taxa ref codathon notes"
+author: "A. J. Rominger"
+date: "2023-07-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cleaning taxonomic names
+
+Load needed packages
+
+```{r}
+library(taxize)
+library(rotl)
+library(stringi)
+```
+
+Import data and clean for special characters and non-spp
+
+```{r}
+# binomials from zenodo
+x <- read.csv('https://zenodo.org/record/7942247/files/MaineSpeciesList_Clean.csv?download=1')
+
+# remove special characters
+x$source_binomial <- stri_trans_general(x$source_binomial, "latin-ascii")
+nrow(x)
+
+# remove non-species
+x <- x[!grepl('sp\\.|cf\\.|f\\.', x$source_binomial), , drop = FALSE]
+
+# remove duplicates
+x <- x[!duplicated(x), , drop = FALSE]
+
+```
+
+Check validity of names, especially cleaning up typos
+```{r}
+# break-up names into vectors of at most 500
+splitNames <- split(x$source_binomial, 
+                    ceiling(seq_along(x$source_binomial)/500))
+
+
+# make a list to populate with results from `gnr_resolve`
+xclean <- vector('list', length(splitNames))
+
+for(i in 19:length(xclean)) {  
+  # `preferred_data_source = 4` is for NCBI
+  # set `http = 'post'` for large query
+  xclean[[i]] <- gnr_resolve(splitNames[[i]], 
+                             resolve_once = TRUE, preferred_data_sources = 4,
+                             best_match_only = TRUE, 
+                             canonical = TRUE, http = 'post')
+  cat('# ----\n')
+  cat(i, '\n')
+  print(dim(xclean[[i]]))
+  cat(' \n')
+}
+```
+
+
+```{r}
+# higher taxonomy
+ranks <- c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')
+tempDF <- as.data.frame(matrix(NA, nrow = 1, ncol = length(ranks)))
+names(tempDF) <- ranks
+
+higherTax <- classification(xclean$matched_name2, db = 'ncbi')
+
+l <- lapply(higherTax, function(r) {
+  if(!inherits(r, 'data.frame')) {
+    return(tempDF)
+  } else {
+    y <- r[r$rank %in% ranks, ]
+    d <- tempDF
+    d[1, y$rank] <- y$name
+    
+    return(d)
+  }
+})
+
+taxTable <- do.call(rbind, l)
+rownames(taxTable) <- NULL
+```
+
+
+
