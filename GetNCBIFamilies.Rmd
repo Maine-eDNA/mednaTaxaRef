@@ -1,7 +1,7 @@
 ---
 title: "GetNCBIFamilies"
 author: "Erin Grey"
-date: "2023-07-11"
+date: "2023-07-11", "2022-09-19"
 output: html_document
 ---
 
@@ -11,41 +11,33 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r housekeeping, include=FALSE}
 rm(list=ls()) # clear environment
-install.packages("taxizedb") #install packages 
 library("taxizedb") # load packages
-
 ```
 
-```{r get_tax_database, include=FALSE}
+```{r get_LocalTaxonomyDatabase, include=FALSE}
 db_tax_NCBI <- db_download_ncbi(verbose = TRUE, overwrite = FALSE) #download the NCBI taxonomy database
-
 ```
 
-```{r get_families, include=FALSE}
+```{r get_Families, include=FALSE}
 families_NCBI_eukaryotes <- downstream("Eukarya", db = "ncbi", downto = "family") #get all family names in Domain Eukarya, note- output is a list
-families_NCBI_eukaryotes_df <- as.data.frame(families_NCBI_eukaryotes[1]) #format from list to dataframe
-
+families_NCBI_eukaryotes_df <- as.data.frame(families_NCBI_eukaryotes[1]) #format from list to data frame
 ```
 
-```{r get_taxonomies, include=FALSE}
+```{r get_FamilyTaxonomies, include=FALSE}
 taxonomy_of_families <- taxizedb::classification(families_NCBI_eukaryotes_df[,1], db="ncbi") #get full taxonomies for each family, note - output is a list-like "classification" object that sucks
-
-```
-
-```{r format_output, include=FALSE}
 taxonomy_of_families_df <- data.frame(matrix(ncol=7, nrow=length(taxonomy_of_families))) # empty dataframe
 colnames(taxonomy_of_families_df) <- c("full_branch","superkingdom","kingdom","phylum","class","order","family") #add column names to the empty dataframe
 
-#loop through the classification object to populate the empty dataframe
+#loop through the classification object to populate the empty data.frame
 for (i in 1:length(taxonomy_of_families)) {
   x <- as.data.frame(taxonomy_of_families[i])
   c1 <- paste0(x[,1], collapse=";")
-  c2 <- x[which(x[,2]=="superkingdom"),1]
-  c3 <- x[which(x[,2]=="kingdom"),1]
-  c4 <- x[which(x[,2]=="phylum"),1]
-  c5 <- x[which(x[,2]=="class"),1]
-  c6 <- x[which(x[,2]=="order"),1]
-  c7 <- x[which(x[,2]=="family"),1]
+  c2 <- paste0(x[which(x[,2]=="superkingdom"),c(1,3)], collapse="_")
+  c3 <- paste0(x[which(x[,2]=="kingdom"),c(1,3)], collapse="_")
+  c4 <- paste0(x[which(x[,2]=="phylum"),c(1,3)], collapse="_")
+  c5 <- paste0(x[which(x[,2]=="class"),c(1,3)], collapse="_")
+  c6 <- paste0(x[which(x[,2]=="order"),c(1,3)], collapse="_")
+  c7 <- paste0(x[which(x[,2]=="family"),c(1,3)], collapse="_")
   
   if (length(c1) > 0) {
     taxonomy_of_families_df$full_branch[i] <- c1
@@ -92,6 +84,54 @@ for (i in 1:length(taxonomy_of_families)) {
 }
 ```
 
-```{r get_taxonomies, include=FALSE}
-write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-07-12.csv", row.names = F)
+```{r write_FamiliesAndOrders, include=FALSE}
+taxonomy_of_orders_df <- taxonomy_of_families_df[!duplicated(taxonomy_of_families_df$order),1:6]
+write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-09-19.csv", row.names = F)
+write.csv(taxonomy_of_orders_df, "Eukaryota_orders_2023-09-19.csv", row.names = F)
+```
+
+```{r get_MetazoanSpeciesByOrder, include=FALSE}
+species_by_MetazoanOrder <- taxonomy_of_orders_df[which(taxonomy_of_orders_df$kingdom=="Metazoa_33208"),]
+for (i in 1:dim(species_by_MetazoanOrder)[1]){
+  id <- strsplit(species_by_MetazoanOrder$order[i], "_")[[1]][2] #get the iud number for each order
+  spp_list <- downstream(id, db="ncbi", downto="species")
+  spp_df <- as.data.frame(spp_list[1])
+  species_by_MetazoanOrder$spp_list[i] <- paste0(spp_df[,1], collapse=";") #update database
+  rm(id); rm(spp_list); rm(spp_df) #clean up
+}
+
+##for undefined orders, go up to class to find species
+for (i in 1:dim(species_by_MetazoanOrder)[1]){
+  if (species_by_MetazoanOrder$spp_list[i]=="NA") {
+  id <- strsplit(species_by_MetazoanOrder$class[i], "_")[[1]][2] #get the iud number for the class instead
+  spp_list <- downstream(id, db="ncbi", downto="species")
+  spp_df <- as.data.frame(spp_list[1])
+  species_by_MetazoanOrder$spp_list[i] <- paste0(spp_df[,1], collapse=";") #update database
+  rm(id); rm(spp_list); rm(spp_df) #clean up
+  }
+}
+write.csv(species_by_MetazoanOrder, "MetazoaSpeciesByOrder_2023-09-19.csv", row.names = F)
+
+```
+
+```{r get_MetazoanSpeciesByFamily, include=FALSE}
+species_by_MetazoanFamily <- taxonomy_of_families_df[which(taxonomy_of_families_df$kingdom=="Metazoa_33208"),]
+for (i in 1:dim(species_by_MetazoanFamily)[1]){
+  id <- strsplit(species_by_MetazoanFamily$family[i], "_")[[1]][2] #get the iud number for each order
+  spp_list <- downstream(id, db="ncbi", downto="species")
+  spp_df <- as.data.frame(spp_list[1])
+  species_by_MetazoanFamily$spp_list[i] <- paste0(spp_df[,1], collapse=";") #update database
+  rm(id); rm(spp_list); rm(spp_df) #clean up
+}
+
+##for undefined families, go up to order to find species
+for (i in 1:dim(species_by_MetazoanFamily)[1]){
+  if (species_by_MetazoanFamily$spp_list[i]=="NA") {
+  id <- strsplit(species_by_MetazoanFamily$order[i], "_")[[1]][2] #get the iud number for the class instead
+  spp_list <- downstream(id, db="ncbi", downto="species")
+  spp_df <- as.data.frame(spp_list[1])
+  species_by_MetazoanFamily$spp_list[i] <- paste0(spp_df[,1], collapse=";") #update database
+  rm(id); rm(spp_list); rm(spp_df) #clean up
+  }
+}
 ```
