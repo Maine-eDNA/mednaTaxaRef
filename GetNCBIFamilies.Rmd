@@ -82,15 +82,11 @@ for (i in 1:length(taxonomy_of_families)) {
   }
  rm(list = c("c1","c2","c3","c4","c5","c6","c7","x"))
 }
-```
-
-```{r write_FamiliesAndOrders, include=FALSE}
-taxonomy_of_orders_df <- taxonomy_of_families_df[!duplicated(taxonomy_of_families_df$order),1:6]
-write.csv(taxonomy_of_families_df, "Eukaryota_families_2023-09-19.csv", row.names = F)
-write.csv(taxonomy_of_orders_df, "Eukaryota_orders_2023-09-19.csv", row.names = F)
+write.csv(taxonomy_of_families_df, "EukaryoteFamilies_NCBI_2023-09-19.csv")
 ```
 
 ```{r get_MetazoanSpeciesByOrder, include=FALSE}
+taxonomy_of_orders_df <- taxonomy_of_families_df[!duplicated(taxonomy_of_families_df$order),1:6]
 species_by_MetazoanOrder <- taxonomy_of_orders_df[which(taxonomy_of_orders_df$kingdom=="Metazoa_33208"),]
 for (i in 1:dim(species_by_MetazoanOrder)[1]){
   id <- strsplit(species_by_MetazoanOrder$order[i], "_")[[1]][2] #get the iud number for each order
@@ -134,4 +130,5 @@ for (i in 1:dim(species_by_MetazoanFamily)[1]){
   rm(id); rm(spp_list); rm(spp_df) #clean up
   }
 }
+write.csv(species_by_MetazoanFamily, "MetazoaSpeciesByFamily_2023-09-19.csv", row.names = F)
 ```
