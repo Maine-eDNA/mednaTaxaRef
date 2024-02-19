@@ -16,7 +16,7 @@ rm(list=ls())
 ```{r define_variables}
 entrez_key <- "7c5ac035201a1835b5a81de1b74ec8613d08" #GET YOUR OWN ENTREZ KEY AND PUT IT HERE!
 locus = "COI" #name of target locus, your choices are 
-output_folder <- "Test_Erin-2024-02-13" #name of your output folder every time
+output_folder <- "MaineMetazoa_COI-2024-12-16" #name of your output folder every time
 species_list <- read.csv("workingfiles/MaineSpeciesList_Clean-EKG.csv") # your species list
 colnames(species_list)<- c("search_name") 
 order_list <- read.csv("workingfiles/MetazoaSpeciesByOrder_2023-09-19.csv") # list of vertebrate orders
@@ -171,7 +171,7 @@ orders_missing <- droplevels(subset(order_list, !(order_list$order %in% unique(f
 row.names(orders_missing) = NULL # format
 write.csv(a01_NAMES, file.path(output_folder, "a01_NAMES_wTaxonomy.csv"), row.names = FALSE)
 write.csv(a01_NAMES_missing, file.path(output_folder, "a01_NAMES_withoutTaxonomy.csv"), row.names = FALSE)
-#a01_NAMES <- droplevels(subset(a01_NAMES,kingdom == "Metazoa_33208")) #subset if desired
+a01_NAMES <- droplevels(subset(a01_NAMES,kingdom == "Metazoa_33208"))
 ```
 
 ## Find up to 3 mitogenomes or target sequences for missing orders. If you run into an HTTP 500 error, just start the loop again and you should be good.
