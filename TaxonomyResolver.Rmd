@@ -1,0 +1,92 @@
+---
+title: "TaxonomyResolver"
+author: "Erin Grey"
+date: "2024-02-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r housekeeping}
+rm(list=ls()) #clear working memory
+library(taxize)
+output_folder <- "workingfiles"
+names <- read.csv("workingfiles/MaineSpeciesList_Clean-EKG-MissingNCBITaxonomy.csv")
+```
+
+```{r resolve_names}
+# use chunks of <1000 to avoid http errors
+goodnames00 <- gnr_resolve(names$search_name[1:1000], data_source_ids=4, http="post", fields="all")
+goodnames01 <- gnr_resolve(names$search_name[1001:2000], data_source_ids=4, http="post", fields="all")
+goodnames02 <- gnr_resolve(names$search_name[2001:3000], data_source_ids=4, http="post", fields="all")
+goodnames03 <- gnr_resolve(names$search_name[3001:4000], data_source_ids=4, http="post", fields="all")
+goodnames04 <- gnr_resolve(names$search_name[4001:5000], data_source_ids=4, http="post", fields="all")
+goodnames05 <- gnr_resolve(names$search_name[5001:6000], data_source_ids=4, http="post", fields="all")
+goodnames06 <- gnr_resolve(names$search_name[6001:7000], data_source_ids=4, http="post", fields="all")
+goodnames07 <- gnr_resolve(names$search_name[7001:8000], data_source_ids=4, http="post", fields="all")
+goodnames08 <- gnr_resolve(names$search_name[8001:9000], data_source_ids=4, http="post", fields="all")
+goodnames09 <- gnr_resolve(names$search_name[9001:9690], data_source_ids=4, http="post", fields="all")
+```
+
+```{r format}
+goodnames <- do.call("rbind", list(goodnames00, goodnames01, goodnames02,goodnames03, goodnames04, goodnames05,goodnames06, goodnames07, goodnames08, goodnames09))
+rm(goodnames00, goodnames01, goodnames02,goodnames03, goodnames04, goodnames05,goodnames06, goodnames07, goodnames08, goodnames09)
+goodnames$match_value <- as.factor(goodnames$match_value) #format
+goodnames$match_type <- as.factor(goodnames$match_type) #format
+
+# Taxa that could only be identified to genus
+goodnames_GenusOnly <- subset(goodnames, match_value == "Could only match genus")
+goodnames_GenusOnly$genus <- vapply(strsplit(goodnames_GenusOnly$matched_name," "), `[`, 1, FUN.VALUE=character(1)) #get the genus name from the matched name
+goodnames_UniqueGenusOnly <- goodnames_GenusOnly[!duplicated(goodnames_GenusOnly$genus),]
+
+# Taxa that could be identified to species
+goodnames_Species <- subset(goodnames, match_value != "Could only match genus")
+goodnames_UniqueSpecies <- goodnames_Species[!duplicated(goodnames_Species$matched_name),]
+goodnames_UniqueSpecies$superkingdom <- "na"; goodnames_UniqueSpecies$kingdom <- "na"; 
+goodnames_UniqueSpecies$phylum <- "na"; goodnames_UniqueSpecies$class <- "na";
+goodnames_UniqueSpecies$order <- "na"; goodnames_UniqueSpecies$family <- "na";
+goodnames_UniqueSpecies$genus <- "na"; goodnames_UniqueSpecies$species <- "na"
+
+s=1
+for (s in 1:dim(goodnames_UniqueSpecies)[1]) {
+  paths <- unlist(strsplit(goodnames_UniqueSpecies$classification_path[s], "|", fixed=TRUE))
+  ranks <- unlist(strsplit(goodnames_UniqueSpecies$classification_path_ranks[s], "|", fixed=TRUE))                
+  temp <- as.data.frame(cbind(paths, ranks))
+  
+  if (length(which(temp$ranks=="superkingdom"))>0){
+  goodnames_UniqueSpecies$superkingdom[s] <- temp[which(temp$ranks=="superkingdom"), 1]
+  }
+  if (length(which(temp$ranks=="kingdom"))>0){
+  goodnames_UniqueSpecies$kingdom[s] <- temp[which(temp$ranks=="kingdom"), 1]
+  }
+  if (length(which(temp$ranks=="phylum"))>0){
+  goodnames_UniqueSpecies$phylum[s] <- temp[which(temp$ranks=="phylum"), 1]
+  }
+  if (length(which(temp$ranks=="class"))>0){
+  goodnames_UniqueSpecies$class[s] <- temp[which(temp$ranks=="class"), 1]
+  }
+  if (length(which(temp$ranks=="order"))>0){
+  goodnames_UniqueSpecies$order[s] <- temp[which(temp$ranks=="order"), 1]
+  }
+  if (length(which(temp$ranks=="family"))>0){
+  goodnames_UniqueSpecies$family[s] <- temp[which(temp$ranks=="family"), 1]
+  }
+  if (length(which(temp$ranks=="genus"))>0){
+  goodnames_UniqueSpecies$genus[s] <- temp[which(temp$ranks=="genus"), 1]
+  }
+  if (length(which(temp$ranks=="species"))>0){
+  goodnames_UniqueSpecies$species[s] <- temp[which(temp$ranks=="species"), 1]
+  }
+  
+  rm(paths, ranks, temp)
+  s=s+1
+}
+
+```
+
+```{r output}
+goodnames_UniqueSpecies <- subset(goodnames_UniqueSpecies, kingdom=="Metazoa")
+write.csv(goodnames_UniqueSpecies, "workingfiles/MissingMetazoa_species.csv", row.names = FALSE)
+```

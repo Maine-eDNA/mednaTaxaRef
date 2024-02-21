@@ -498,6 +498,7 @@ n_species_withnames <- dim(a00_SPECIES_SUMMARY)[1]
 n_species_withnamesANDtargets <- length(which(a00_SPECIES_SUMMARY$n_all_seqs>0))
 n_species_nonames <- dim(a01_NAMES_missing)[1]
 write.csv(a00_SPECIES_SUMMARY, file.path(output_folder, "a00_SPECIES_SUMMARY.csv"), row.names=FALSE)
+write.csv(a01_NAMES_missing, "workingfiles/MaineSpeciesList_Clean-EKG-MissingNCBITaxonomy.csv", row.names=FALSE)
 
 n_species_withnames; n_species_withnamesANDtargets; n_species_nonames
 ```
