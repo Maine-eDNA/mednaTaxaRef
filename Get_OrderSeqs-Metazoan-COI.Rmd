@@ -1,0 +1,306 @@
+---
+title: "Get_OrderSeqs-Metazoan-COI"
+author: "Erin Grey"
+date: "2024-03-13"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+### DEFINE THE FOLLOWING VARIABLES FOR YOUR ANALYSIS
+## locus choices are: (GENES) "ATP6" "ATP8"  "COI"  "COII"  "COIII"  "CYTB"  "ND1"  "ND2"  "ND3"  "ND4" "ND4L" "ND5"  "ND6"  and (OTHER FEATURES) "rRNA_12S" "rRNA_16S" "D_loop" "tRNA_Ala" "tRNA_Arg" "tRNA_Asn" "tRNA_Asp" "tRNA_Cys" "tRNA_Gln" "tRNA_Glu" "tRNA_Gly" "tRNA_His" "tRNA_Ile" "tRNA_Leu" "tRNA_Lys" "tRNA_Met" "tRNA_Phe" "tRNA_Pro" "tRNA_Ser" "tRNA_Thr" "tRNA_Trp" "tRNA_Tyr" "tRNA_Val"
+## species_list must have "search_name" as the first column and it must be a binomial species name
+```{r define_variables}
+entrez_key <- "7c5ac035201a1835b5a81de1b74ec8613d08" #GET YOUR OWN ENTREZ KEY AND PUT IT HERE!
+locus = "COI" #name of target locus, your choices are 
+output_folder <- "temp_output" #name of your output folder every time
+order_list <- read.csv("workingfiles/MetazoaSpeciesByOrder_2023-09-19.csv") # list of vertebrate orders
+```
+
+### LOAD PACKAGES, DEFINE TERM, AND CREATE DATABASE SKELETONS.
+```{r load_packages_and_terms}
+library(taxizedb) #checks taxonomy
+library(rentrez) #queries ENTREZ databases and downloads accessions
+library(AnnotationBustR) #finds longest accessions, slice genes from mitogenomes
+library(reutils) #other packages need it
+library(ape) #convert fasta, fastq, etc.
+library(ggplot2) #plots
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("Biostrings")
+library(Biostrings)
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("genbankr")
+library(genbankr) ##genbankr is not functioning on latest Bioconductor, install locally instead
+set_entrez_key(entrez_key) #set the Entrez API key
+dir.create(output_folder)
+
+# create search terms for ENTREZ
+data(mtDNAterms) #AnnotationBustR's list of synonyms for different loci
+more_12Ssynonyms <- data.frame(Locus="rRNA_12S", Type="rRNA", Name= "small ribosomal RNA subunit RNA") # other synonyms that we find go here and get added to AnnotationBustR's list
+mtDNAterms <- rbind(mtDNAterms, more_12Ssynonyms) #format
+is_mtgene <- locus %in% c("ATP6", "ATP8",  "COI",  "COII",  "COIII",  "CYTB",  "ND1",  "ND2",  "ND3",  "ND4", "ND4L", "ND5",  "ND6") #check whether the locus is a gene or other feature, needed for the mitogenome scrape
+target_locus_synonyms <- mtDNAterms[mtDNAterms$Locus==locus,] #the target synonyms
+target_locus_synonyms$Terms <- paste0("OR ", target_locus_synonyms$Name, "[TITL]") # format for ENTREZ search terms
+target_locus_synonyms$Terms[1] <- paste0("AND (", target_locus_synonyms$Name[1], "[TITL]") # first term starts with "AND ("
+target_locus_synonyms$Terms[dim(target_locus_synonyms)[1]] <- paste0("OR ", target_locus_synonyms$Name[dim(target_locus_synonyms)[1]], "[TITL])") #last term ends with a ")"
+target_locus_searchterm <- paste(as.vector(target_locus_synonyms$Terms), collapse=" ") # the big ENTREZ search term
+
+# create empty dataframes to fill in during loops
+tax_df <- as.data.frame(matrix(nrow=1, ncol=9, dimnames=list(NULL, c("tax_query", "superkingdom", "kingdom", "phylum", "class", "order", "family", "genus", "species")))) # taxonomy skeleton
+order_seqs <- as.data.frame(matrix(nrow=1, ncol=8, dimnames=list(NULL, c("superkingdom", "kingdom", "phylum", "class", "order", "species_id", "ids_mitogenome","ids_target")))) #  missing orders skeleton
+a02_REFDB <- data.frame(seq_header=NA, sequence=NA, seq_accession=NA, type=NA, species=NA) #create reference database skeleton
+t = 1 # taxonomy for species list loop counter
+u = 1  # taxonomy for order sequences loop counter
+o = 1 # missing orders loop counter
+j = 1 # missing orders species loop counter
+i = 1 # ENTREZ search loop counter
+s = 1 # sequence scrape loop counter
+m = 1 # mitogenome scrape loop counter
+z = 1 # output format loop counter
+d = 1 # dada2 taxonomy counter
+```
+
+## Find up to 5 mitogenomes or target sequences for each orders. If you run into an HTTP 500 error, just start the loop again and you should be good.
+```{r orders_seqs}
+# find sequences for up to five species for each missing order; search mitogenomes first, then regular accessions
+while (o <= dim(order_list)[1]) { # for every missing order
+    cat("\r", "finding ref seqs for order", o, "of", dim(order_list)[1]) #counter
+    STOPIT <- "NO" # set STOPIT to NO for this order
+    while (STOPIT == "NO"){ # keep searching as long as STOPIT = "NO"
+        species_ids_ls <- strsplit(order_list$spp_list[[o]], ";") # get the species ids for that order
+        if (is.na(species_ids_ls[[1]][1])) {STOPIT <- "YES"} #IF THERE ARE NO GENBANK SPECIES FOR THIS ORDER, STOP SEARCHING FOR IT
+        if (length(species_ids_ls[[1]])<=5) { 
+            species_ids <- species_ids_ls[[1]] #format species ids
+            for (j in 1:length(species_ids)){ # for each species
+                search_name <- paste0("txid",species_ids[j],"[Organism]")
+                mitogenomes <- tryCatch(entrez_search(db="nucleotide", term <- paste(search_name, "AND mitochondrion[TITL] AND complete genome[TITL]"), retmax=9999)) # search mitogenomes
+                if(class(mitogenomes)[1] != "try-catch") { #if the search went through
+                    if (length(mitogenomes$ids)>0) {
+                    mito_id <- sample(mitogenomes$ids,1) #choose a random mitogenome for this species
+                    row_info <- c(order_list$superkingdom[o], order_list$kingdom[o], order_list$phylum[o], order_list$class[o], order_list$order[o], species_ids[i], mito_id, "NA")
+                    order_seqs <- rbind(order_seqs, row_info)
+                    rm(list=c("mito_id","row_info"))
+                    Sys.sleep(1) #slow down request to the Entrez server or you'll get kicked out
+                    } else {
+                        targets <- tryCatch(entrez_search(db="nucleotide", term <- paste(search_name, target_locus_searchterm, collapse=" "), retmax=999999))
+                        if(class(targets)[1] != "try-catch") {
+                            if (length(targets$ids)>0) {
+                                target_id <- sample(targets$ids,1) #choose a random accession for this species
+                                row_info <- c(order_list$superkingdom[o], order_list$kingdom[o], order_list$phylum[o], order_list$class[o], order_list$order[o],species_ids[j], "NA", target_id)
+                                order_seqs <- rbind(order_seqs,row_info)
+                                rm(list=c("target_id","row_info"))
+                                Sys.sleep(1) #slow down request to the Entrez server or you'll get kicked out
+                                }
+                            }
+                            rm(targets)
+                        }
+                        rm(search_name); rm(mitogenomes)
+                    }
+                    STOPIT <- "YES"
+                }
+            }   #If there are 5 or fewer species, search them all for a mitogenome or accession then STOP SEARCHING
+        if (length(species_ids_ls[[1]])>5){ 
+            species_ids <- sample(species_ids_ls[[1]]) #randomize the species for each order
+            finds = 0 #start with zero finds
+            for (j in 1:length(species_ids)){
+                search_name <- paste0("txid",species_ids[j],"[Organism]")
+                mitogenomes <- tryCatch(entrez_search(db="nucleotide", term <- paste(search_name, "AND mitochondrion[TITL] AND complete genome[TITL]"), retmax=9999)) # search mitogenomes
+                if(class(mitogenomes)[1] != "try-catch") { #if the search went through
+                    if (length(mitogenomes$ids)>0) {
+                        mito_id <- sample(mitogenomes$ids,1) #choose a random mitogenome for this species
+                        row_info <- c(order_list$superkingdom[o], order_list$kingdom[o], order_list$phylum[o], order_list$class[o], order_list$order[o], species_ids[j], mito_id, "NA")
+                        order_seqs <- rbind(order_seqs,row_info)
+                        finds=finds+1 #add to find count
+                        rm(mito_id) 
+                        Sys.sleep(1) #slow down request to the Entrez server or you'll get kicked out
+                    } else {
+                            targets <- tryCatch(entrez_search(db="nucleotide", term <- paste(search_name, target_locus_searchterm, collapse=" "), retmax=999999))
+                            if(class(targets)[1] != "try-catch") {
+                                if (length(targets$ids)>0) {
+                                    target_id <- sample(targets$ids,1) #choose a random accession for this species
+                                    row_info <- c(order_list$superkingdom[o], order_list$kingdom[o], order_list$phylum[o], order_list$class[o], order_list$order[o],species_ids[j], "NA", target_id)
+                                    order_seqs <- rbind(order_seqs,row_info)
+                                    finds=finds+1 #add to find count
+                                    rm(target_id); rm(row_info)
+                                    Sys.sleep(1) #slow down request to the Entrez server or you'll get kicked out
+                                    }
+                                }
+                                rm(targets)
+                            }
+                            rm(search_name); rm(mitogenomes)
+                            if (finds >= 3) break
+                            STOPIT <- "YES"
+                        }
+                } #If there are >=3 species, randomize and search mitogenomes or accessions until you get 3 or have searched them all
+            }
+            rm(species_ids_ls)
+            o=o+1
+    }
+}
+order_seqs <- na.omit(order_seqs) #subtract the first row because its all NAs
+order_seqs$search_name<-"NA"; order_seqs$n_mitogenome<-"NA"; order_seqs$n_target<-"NA"; order_seqs$species<-"NA"; order_seqs$family<-"NA"; order_seqs$genus<-"NA" #make column names same as a01_NAME for merging
+order_seqs$n_mitogenome <- ifelse(order_seqs$ids_mitogenome!="NA",1,0) #update the n_mitogenome column
+order_seqs$n_target <- ifelse(order_seqs$ids_target!="NA",1,0) #update the n_target column
+```
+
+## Get taxonomy for each species representative for the missing orders.
+```{r taxonomy_for_order_seqs}
+taxonomies_orderseqs <- taxizedb::classification(order_seqs$species_id, db="ncbi") #get full taxonomies for each species selected to represent missing orders, output is a list-like "classification" object that sucks
+#now loop through the sucky classification object to populate the empty dataframe
+for (u in 1:length(taxonomies_orderseqs)) {
+  x <- as.data.frame(taxonomies_orderseqs[u])
+  
+  if (dim(x)[1]>1) {
+        c4 <- paste0(x[which(x[,2]=="family"),c(1,3)], collapse="_")
+        c5 <- paste0(x[which(x[,2]=="genus"),c(1,3)], collapse="_")
+        c6 <- paste0(x[which(x[,2]=="species"),c(1,3)][1,], collapse="_")
+  }
+
+   if (exists("c4")){
+      if (length(c4) > 0) {
+        order_seqs$family[u] <- c4
+        } else {
+        order_seqs$family[u] <- NA    
+        }
+    } 
+  
+  if (exists("c5")){
+      if (length(c5) > 0) {
+         order_seqs$genus[u] <- c5
+        } else {
+         order_seqs$genus[u] <- NA    
+        }
+    } 
+  
+   if (exists("c6")){
+      if (length(c6) > 0) {
+        order_seqs$species[u] <- c6
+        } else {
+        order_seqs$species[u] <- NA    
+        }
+    } 
+  
+ suppressWarnings(rm(list = c("x", "tax_query", "c4","c5","c6")))
+}
+order_seqs$search_name <- data.frame(do.call(rbind, strsplit(order_seqs$species, split = "_")))[,1]
+```
+
+## Scrape accessions identified above from GenBank.
+```{r scrape_accessions}
+
+#skipped 1455 cf. Makaira nigricans/Istiompax indica JFDC-2020 because threw and error
+
+while (s <= dim(order_seqs)[1]){ #for every good species name
+    cat("\r","scraping accessions for species", s, "of",dim(order_seqs)[1])
+    ids <- "na"
+    seqs_target <- "na"
+    if (order_seqs$n_target[s]>0 && order_seqs$n_target[s]<100) { # scrape GenBank target sequences if available, but skip if >= 100 targets
+     ids <- c(unlist(strsplit(order_seqs$ids_target[s], split="\\|")))
+      } else if  (order_seqs$n_target[s]>100) {   # if more than 200 accessions, randomly select 100  
+     ids <- sample(c(unlist(strsplit(order_seqs$ids_target[s], split="\\|"))),100)
+      }
+    if (ids[1] !="na"){ # if there are accessions, fetch them from GenBank
+        seqs_target <- tryCatch(entrez_fetch(db="nuccore", id=ids, rettype="fasta"))
+        }
+        if(class(seqs_target) != "try-catch"){
+            if (seqs_target != "na"){
+            write(seqs_target, file.path(output_folder, paste(order_seqs$search_name[s], paste0(locus, ".fasta")))) # formatting - write out the sequences
+            fasta_target <- readDNAStringSet(file.path(output_folder, paste(order_seqs$search_name[s], paste0(locus, ".fasta"))), format="fasta") #formatting - read them back in as fasta
+            file.remove(file.path(output_folder, paste(order_seqs$search_name[s], paste0(locus, ".fasta")))) #remove the file to save space
+            seqs_target_accessions <- entrez_fetch(db="nuccore", id=ids, rettype="acc") # get accession numbers
+            seq_header <- names(fasta_target) #formatting
+            sequence <- paste(fasta_target) #formatting
+            seq_accession <- unlist(strsplit(seqs_target_accessions, split="\n")) # formatting
+            tempDB <- data.frame(seq_header, sequence, seq_accession, type="accession", species=order_seqs$search_name[s]) # make a temporary database with all sequences, their header, accession number, etc.
+            a02_REFDB <- rbind(a02_REFDB, tempDB) # append temporary database to the full database
+                }
+            s=s+1
+            }
+    #reset loop variables
+    fasta_target<-"na"; seqs_target_accessions<-"na"; seq_header<-"na"; sequence<-"na"; seq_accession<-"na";
+    tempDB <-"na"
+    #slow down request to the Entrez server or you'll get kicked out
+    Sys.sleep(0.5)
+ }
+
+```
+
+## Scrape your target locus out of mitogenomes identified in the Entrez search. Note - I need to fix some things here (the loop breaks on parsing errors). If you get stuck, just "m=m+1" and re-start loop
+```{r scrape_mitogenomes}
+
+## skipped 245, 836, 1166
+while (m <= dim(order_seqs)[1]) { #for every good species name
+    cat("\r","scraping mitogenomes for species", m, "of", dim(order_seqs)[1])
+    mito_ids <- "na"
+    if (order_seqs$n_mitogenome[m]>0 && order_seqs$n_mitogenome[m]<20) { #if mitogenomes available and <20
+        mito_ids <- unlist(strsplit(order_seqs$ids_mitogenome[m], split="\\|")) #format ids
+    } else if (order_seqs$n_mitogenome[m]>20) { #if >20 mitogenomes, subsample 20 mitogenomes randomly
+        mito_ids <- sample(unlist(strsplit(order_seqs$ids_mitogenome[m], split="\\|")),20) # format ids  
+    }
+   
+    if (mito_ids[1] != "na") { #if there are mitogenome ids for species m
+        mito_accessions <- tryCatch(entrez_fetch(mito_ids, db="nuccore", rettype="acc")) #ask ENTREZ for id's accession
+        if (class(mito_accessions) != "try-catch"){ #if no api error
+            mito_accessions <- unlist(strsplit(mito_accessions, split="\n")) #format accession numbers
+            for (n in 1:length(mito_accessions)){ # loop through and scrape each mitogenome accession
+              new_row <- c(paste("Unparsed mitochondrion", mito_accessions[n], sep=" "), "na", mito_accessions[n], "scrape", species=order_seqs$search_name[m]) #blank row for each accession
+              gb <- tryCatch(readGenBank(GBAccession(mito_accessions[n]))) # get the Genbank annotation for accession
+                if (class(gb) != "try-catch"){ #if no error in getting gb
+                  if (is_mtgene==FALSE) {# if target locus is not a gene, look in otherFeatures()
+                  target_feature <- tryCatch(which(otherFeatures(gb)$product %in% as.character(target_locus_synonyms$Name))) # find target locus annotation metadata 
+                    if (class(target_feature) != "try-catch"){
+                      if(length(target_feature) > 0) { # if target feature is found
+                        target_range <- tryCatch(otherFeatures(gb)@ranges[target_feature]) #extract the target range info
+                          if(class(target_range) != "try-catch"){
+                            target_seq <- tryCatch(subseq(getSeq(gb), start=target_range@start, width=target_range@width)) #scrape seq
+                              if(class(target_seq) != "try-catch"){
+                                scraped_seq <- paste(target_seq) #format
+                                new_row <- c(paste(names(target_seq),"mitochondrion", mito_accessions[n], sep=" "), paste(target_seq), mito_accessions[n], "scrape", order_seqs$search_name[m]) #update information
+                            }
+                          }
+                      }
+                    }
+                  }
+                  else if (is_mtgene==TRUE){ # if target locus is a gene, look in gene()
+                    target_feature <- tryCatch(which(genes(gb)$gene %in% as.character(target_locus_synonyms$Name))) # find target locus annotation metadata 
+                    if (class(target_feature) != "try-catch"){
+                      if(length(target_feature) > 0) { # if target feature is found
+                        target_range <- tryCatch(genes(gb)@ranges[target_feature])  #extract the target range info
+                          if(class(target_range) != "try-catch"){
+                            target_seq <- tryCatch(subseq(getSeq(gb), start=target_range@start, width=target_range@width)) #scrape seq
+                              if(class(target_seq) != "try-catch"){
+                                scraped_seq <- paste(target_seq) #format
+                                new_row <- c(paste(names(target_seq),"mitochondrion", mito_accessions[n], sep=" "), paste(target_seq), mito_accessions[n], "scrape", order_seqs$search_name[m]) #update information
+                            }
+                          }
+                      }
+                    }
+                  }
+                }
+              a02_REFDB <- rbind(a02_REFDB, new_row) # update the database
+              rm(gb, target_feature, target_range, target_seq, scraped_seq, new_row) # reset n loop variables
+              Sys.sleep(0.5) #slow down request to the Entrez server or you'll get kicked out
+            } # close n loop (each "n" mitogenome accession per "m" species)
+        }
+    }
+    m=m+1 #update species m variable
+    rm(mito_ids, mito_accessions) # reset loop variables
+    Sys.sleep(0.5) #slow down request to the Entrez server or you'll get kicked out
+} # close for each species m loop
+
+a02_REFDB <- a02_REFDB[-1,] #format - remove the top row of NAs
+colnames(order_seqs)[12] <- "species_name_id" #format for merging
+order_seqs_taxonomies <- order_seqs[,c(1:5,12,9)]
+order_seqs_taxonomies <- order_seqs_taxonomies[!duplicated(order_seqs_taxonomies),]
+
+a03_REFDB <- merge(a02_REFDB, order_seqs_taxonomies, by.x="species", by.y="search_name", all.x=TRUE)
+a03_REFDB <- a03_REFDB[which(a03_REFDB$sequence != "na"),]
+write.csv(a03_REFDB, file.path(output_folder, paste0("OrderSeqs_Metazoan-", locus, 
+".csv")), row.names=FALSE)
+```
