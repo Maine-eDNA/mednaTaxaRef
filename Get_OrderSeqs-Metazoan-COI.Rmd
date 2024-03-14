@@ -15,7 +15,7 @@ rm(list=ls())
 ## locus choices are: (GENES) "ATP6" "ATP8"  "COI"  "COII"  "COIII"  "CYTB"  "ND1"  "ND2"  "ND3"  "ND4" "ND4L" "ND5"  "ND6"  and (OTHER FEATURES) "rRNA_12S" "rRNA_16S" "D_loop" "tRNA_Ala" "tRNA_Arg" "tRNA_Asn" "tRNA_Asp" "tRNA_Cys" "tRNA_Gln" "tRNA_Glu" "tRNA_Gly" "tRNA_His" "tRNA_Ile" "tRNA_Leu" "tRNA_Lys" "tRNA_Met" "tRNA_Phe" "tRNA_Pro" "tRNA_Ser" "tRNA_Thr" "tRNA_Trp" "tRNA_Tyr" "tRNA_Val"
 ## species_list must have "search_name" as the first column and it must be a binomial species name
 ```{r define_variables}
-entrez_key <- "7c5ac035201a1835b5a81de1b74ec8613d08" #GET YOUR OWN ENTREZ KEY AND PUT IT HERE!
+entrez_key <- "You_Entrez_Key_Here" #GET YOUR OWN ENTREZ KEY AND PUT IT HERE!
 locus = "COI" #name of target locus, your choices are 
 output_folder <- "temp_output" #name of your output folder every time
 order_list <- read.csv("workingfiles/MetazoaSpeciesByOrder_2023-09-19.csv") # list of vertebrate orders

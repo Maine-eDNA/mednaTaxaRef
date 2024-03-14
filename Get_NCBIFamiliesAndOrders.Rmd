@@ -1,5 +1,5 @@
 ---
-title: "GetNCBIFamilies"
+title: "Get_NCBIFamilies"
 author: "Erin Grey"
 date: "2023-07-11", "2022-09-19"
 output: html_document
